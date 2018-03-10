@@ -5,7 +5,7 @@ use std::mem;
 use std::fmt;
 pub use std::ops::Not;
 
-#[derive(Debug, Eq, Clone, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub enum Expr<T> {
     Truth(bool),
     Proposition(Rc<T>),
@@ -53,6 +53,22 @@ impl<T> Expr<T> {
 
     fn has_obvious_priority_over(&self, e: &Expr<T>) -> bool {
         self.vague_priority() < e.vague_priority()
+    }
+}
+
+// implement Clone for Expr<T> no matter whether T is cloned
+impl<T> Clone for Expr<T> {
+    fn clone(&self) -> Self {
+        match *self {
+            Expr::Truth(t) => Expr::Truth(t),
+            Expr::Proposition(ref p) => Expr::Proposition(p.clone()),
+            Expr::Not(ref e) => Expr::Not(e.clone()),
+            Expr::And(ref e1, ref e2) => Expr::And(e1.clone(), e2.clone()),
+            Expr::Or(ref e1, ref e2) => Expr::Or(e1.clone(), e2.clone()),
+            Expr::Xor(ref e1, ref e2) => Expr::Xor(e1.clone(), e2.clone()),
+            Expr::Implies(ref e1, ref e2) => Expr::Implies(e1.clone(), e2.clone()),
+            Expr::Equivalent(ref e1, ref e2) => Expr::Equivalent(e1.clone(), e2.clone()),
+        }
     }
 }
 
@@ -145,6 +161,15 @@ impl<T> Not for Expr<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn clone() {
+        #[derive(Debug, Eq, PartialEq)]
+        struct A(i32);
+        let e1 = Expr::proposition(A(1));
+        let e2 = e1.clone();
+        assert_eq!(e1, e2);
+    }
 
     #[test]
     fn expression_display() {
