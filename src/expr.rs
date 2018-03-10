@@ -3,7 +3,7 @@ pub use ops::*;
 use std::rc::Rc;
 use std::mem;
 use std::fmt;
-pub use std::ops::Not;
+use std::ops::{BitAnd, BitOr, BitXor, Not};
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum Expr<T> {
@@ -158,9 +158,48 @@ impl<T> Not for Expr<T> {
     }
 }
 
+impl<RHS, T> BitAnd<RHS> for Expr<T>
+where
+    RHS: Into<Expr<T>>,
+{
+    type Output = Expr<T>;
+    fn bitand(self, e: RHS) -> Self::Output {
+        self.and(e.into())
+    }
+}
+
+impl<RHS, T> BitOr<RHS> for Expr<T>
+where
+    RHS: Into<Expr<T>>,
+{
+    type Output = Expr<T>;
+    fn bitor(self, e: RHS) -> Self::Output {
+        self.or(e.into())
+    }
+}
+
+impl<RHS, T> BitXor<RHS> for Expr<T>
+where
+    RHS: Into<Expr<T>>,
+{
+    type Output = Expr<T>;
+    fn bitxor(self, e: RHS) -> Self::Output {
+        self.xor(e.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn operation() {
+        let (p, q) = (Expr::proposition('p'), Expr::proposition('q'));
+        assert_eq!(p.clone().not(), !p.clone());
+        assert_eq!(p.clone().and(q.clone()), p.clone() & q.clone());
+        assert_eq!(p.clone().or(q.clone()), p.clone() | q.clone());
+        assert_eq!(p.clone().xor(q.clone()), p.clone() ^ q.clone());
+    }
 
     #[test]
     fn clone() {
