@@ -1,3 +1,5 @@
+pub use ops::*;
+
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::mem;
@@ -7,13 +9,16 @@ use std::fmt;
 pub enum Expr<T> {
     Truth(bool),
     Proposition(T),
-    Not(Rc<RefCell<Expr<T>>>),
-    And(Rc<RefCell<Expr<T>>>, Rc<RefCell<Expr<T>>>),
-    Or(Rc<RefCell<Expr<T>>>, Rc<RefCell<Expr<T>>>),
-    Xor(Rc<RefCell<Expr<T>>>, Rc<RefCell<Expr<T>>>),
-    Implies(Rc<RefCell<Expr<T>>>, Rc<RefCell<Expr<T>>>),
-    Equivalent(Rc<RefCell<Expr<T>>>, Rc<RefCell<Expr<T>>>),
+    Not(SubExpr<T>),
+    And(SubExpr<T>, SubExpr<T>),
+    Or(SubExpr<T>, SubExpr<T>),
+    Xor(SubExpr<T>, SubExpr<T>),
+    Implies(SubExpr<T>, SubExpr<T>),
+    Equivalent(SubExpr<T>, SubExpr<T>),
 }
+
+pub type SubExpr<T> = Rc<RefCell<Expr<T>>>;
+
 
 impl<T> Expr<T> {
     pub fn truth(t: bool) -> Self {
