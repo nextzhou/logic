@@ -171,19 +171,25 @@ mod tests {
         assert_eq!(e1, e2);
     }
 
+    macro_rules! format_eq {
+        ($e: expr, $s: expr) => {
+            assert_eq!(format!("{}", $e), $s);
+        };
+    }
+
     #[test]
     fn expression_display() {
         let p = Expr::proposition('p');
         let q = Expr::proposition('q');
 
-        assert_eq!(format!("{}", Expr::Truth::<i32>(true)), "T");
-        assert_eq!(format!("{}", Expr::Truth::<i32>(false)), "F");
-        assert_eq!(format!("{}", p.clone().not()), "¬p");
-        assert_eq!(format!("{}", p.clone().and(q.clone())), "p∧q");
-        assert_eq!(format!("{}", p.clone().or(q.clone())), "p∨q");
-        assert_eq!(format!("{}", p.clone().xor(q.clone())), "p⊕q");
-        assert_eq!(format!("{}", p.clone().implies(q.clone())), "p⇒q");
-        assert_eq!(format!("{}", p.clone().equivalent(q.clone())), "p⇔q");
+        format_eq!(Expr::Truth::<i32>(true), "T");
+        format_eq!(Expr::Truth::<i32>(false), "F");
+        format_eq!(p.clone().not(), "¬p");
+        format_eq!(p.clone().and(q.clone()), "p∧q");
+        format_eq!(p.clone().or(q.clone()), "p∨q");
+        format_eq!(p.clone().xor(q.clone()), "p⊕q");
+        format_eq!(p.clone().implies(q.clone()), "p⇒q");
+        format_eq!(p.clone().equivalent(q.clone()), "p⇔q");
     }
 
     #[test]
@@ -192,41 +198,29 @@ mod tests {
         let q = Expr::proposition('q');
         let r = Expr::proposition('r');
 
-        assert_eq!(format!("{}", p.clone().not().not()), "¬¬p");
+        format_eq!(p.clone().not().not(), "¬¬p");
 
         let p_and_q = p.clone().and(q.clone());
-        assert_eq!(format!("{}", p_and_q.clone().not()), "¬(p∧q)");
+        format_eq!(p_and_q.clone().not(), "¬(p∧q)");
 
-        assert_eq!(format!("{}", p_and_q.clone().and(r.clone())), "p∧q∧r");
-        assert_eq!(format!("{}", r.clone().and(p_and_q.clone())), "r∧p∧q");
+        format_eq!(p_and_q.clone().and(r.clone()), "p∧q∧r");
+        format_eq!(r.clone().and(p_and_q.clone()), "r∧p∧q");
 
         let p_or_q = p.clone().or(q.clone());
-        assert_eq!(format!("{}", p_or_q.clone().or(r.clone())), "p∨q∨r");
-        assert_eq!(format!("{}", r.clone().or(p_or_q.clone())), "r∨p∨q");
+        format_eq!(p_or_q.clone().or(r.clone()), "p∨q∨r");
+        format_eq!(r.clone().or(p_or_q.clone()), "r∨p∨q");
 
-        assert_eq!(format!("{}", p_and_q.clone().or(r.clone())), "(p∧q)∨r");
-        assert_eq!(format!("{}", r.clone().or(p_and_q.clone())), "r∨(p∧q)");
+        format_eq!(p_and_q.clone().or(r.clone()), "(p∧q)∨r");
+        format_eq!(r.clone().or(p_and_q.clone()), "r∨(p∧q)");
 
         let p_implies_q = p.clone().implies(q.clone());
-        assert_eq!(format!("{}", p_implies_q.clone().not()), "¬(p⇒q)");
-        assert_eq!(
-            format!("{}", p_implies_q.clone().implies(r.clone())),
-            "(p⇒q)⇒r"
-        );
-        assert_eq!(
-            format!("{}", r.clone().implies(p_implies_q.clone())),
-            "r⇒p⇒q"
-        );
+        format_eq!(p_implies_q.clone().not(), "¬(p⇒q)");
+        format_eq!(p_implies_q.clone().implies(r.clone()), "(p⇒q)⇒r");
+        format_eq!(r.clone().implies(p_implies_q.clone()), "r⇒p⇒q");
 
         let p_equivalent_q = p.clone().equivalent(q.clone());
-        assert_eq!(format!("{}", p_equivalent_q.clone().not()), "¬(p⇔q)");
-        assert_eq!(
-            format!("{}", p_equivalent_q.clone().equivalent(r.clone())),
-            "(p⇔q)⇔r"
-        );
-        assert_eq!(
-            format!("{}", r.clone().equivalent(p_equivalent_q.clone())),
-            "r⇔p⇔q"
-        );
+        format_eq!(p_equivalent_q.clone().not(), "¬(p⇔q)");
+        format_eq!(p_equivalent_q.clone().equivalent(r.clone()), "(p⇔q)⇔r");
+        format_eq!(r.clone().equivalent(p_equivalent_q.clone()), "r⇔p⇔q");
     }
 }
