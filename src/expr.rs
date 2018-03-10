@@ -1,24 +1,21 @@
 pub use ops::*;
 
 use std::rc::Rc;
-use std::cell::RefCell;
 use std::mem;
 use std::fmt;
+pub use std::ops::Not;
 
-#[derive(Debug, Eq, Clone, PartialEq)]
+#[derive(Debug, Eq, Clone, PartialEq, Hash)]
 pub enum Expr<T> {
     Truth(bool),
-    Proposition(T),
-    Not(SubExpr<T>),
-    And(SubExpr<T>, SubExpr<T>),
-    Or(SubExpr<T>, SubExpr<T>),
-    Xor(SubExpr<T>, SubExpr<T>),
-    Implies(SubExpr<T>, SubExpr<T>),
-    Equivalent(SubExpr<T>, SubExpr<T>),
+    Proposition(Rc<T>),
+    Not(Box<Expr<T>>),
+    And(Box<Expr<T>>, Box<Expr<T>>),
+    Or(Box<Expr<T>>, Box<Expr<T>>),
+    Xor(Box<Expr<T>>, Box<Expr<T>>),
+    Implies(Box<Expr<T>>, Box<Expr<T>>),
+    Equivalent(Box<Expr<T>>, Box<Expr<T>>),
 }
-
-pub type SubExpr<T> = Rc<RefCell<Expr<T>>>;
-
 
 impl<T> Expr<T> {
     pub fn truth(t: bool) -> Self {
@@ -26,7 +23,7 @@ impl<T> Expr<T> {
     }
 
     pub fn proposition(p: T) -> Self {
-        Expr::Proposition(p)
+        Expr::Proposition(Rc::new(p))
     }
 
     pub fn has_same_operation(&self, e: &Expr<T>) -> bool {
@@ -68,91 +65,80 @@ where
             Expr::Truth(t) => write!(f, "{}", if t { 'T' } else { 'F' }),
             Expr::Proposition(ref p) => write!(f, "{}", p),
             Expr::Not(ref e) => {
-                if e.borrow().has_obvious_priority_over(self)
-                    || e.borrow().priority() == self.priority()
-                {
-                    write!(f, "¬{}", e.borrow())
+                if e.has_obvious_priority_over(self) || e.priority() == self.priority() {
+                    write!(f, "¬{}", e)
                 } else {
-                    write!(f, "¬({})", e.borrow())
+                    write!(f, "¬({})", e)
                 }
             }
             Expr::And(ref e1, ref e2) => {
-                if e1.borrow().has_obvious_priority_over(self)
-                    || e1.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}∧", e1.borrow())
+                if e1.has_obvious_priority_over(self) || e1.has_same_operation(self) {
+                    write!(f, "{}∧", e1)
                 } else {
-                    write!(f, "({})∧", e1.borrow())
+                    write!(f, "({})∧", e1)
                 }?;
-                if e2.borrow().has_obvious_priority_over(self)
-                    || e2.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}", e2.borrow())
+                if e2.has_obvious_priority_over(self) || e2.has_same_operation(self) {
+                    write!(f, "{}", e2)
                 } else {
-                    write!(f, "({})", e2.borrow())
+                    write!(f, "({})", e2)
                 }
             }
             Expr::Or(ref e1, ref e2) => {
-                if e1.borrow().has_obvious_priority_over(self)
-                    || e1.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}∨", e1.borrow())
+                if e1.has_obvious_priority_over(self) || e1.has_same_operation(self) {
+                    write!(f, "{}∨", e1)
                 } else {
-                    write!(f, "({})∨", e1.borrow())
+                    write!(f, "({})∨", e1)
                 }?;
-                if e2.borrow().has_obvious_priority_over(self)
-                    || e2.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}", e2.borrow())
+                if e2.has_obvious_priority_over(self) || e2.has_same_operation(self) {
+                    write!(f, "{}", e2)
                 } else {
-                    write!(f, "({})", e2.borrow())
+                    write!(f, "({})", e2)
                 }
             }
             Expr::Xor(ref e1, ref e2) => {
-                if e1.borrow().has_obvious_priority_over(self)
-                    || e1.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}⊕", e1.borrow())
+                if e1.has_obvious_priority_over(self) || e1.has_same_operation(self) {
+                    write!(f, "{}⊕", e1)
                 } else {
-                    write!(f, "({})⊕", e1.borrow())
+                    write!(f, "({})⊕", e1)
                 }?;
-                if e2.borrow().has_obvious_priority_over(self)
-                    || e2.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}", e2.borrow())
+                if e2.has_obvious_priority_over(self) || e2.has_same_operation(self) {
+                    write!(f, "{}", e2)
                 } else {
-                    write!(f, "({})", e2.borrow())
+                    write!(f, "({})", e2)
                 }
             }
             Expr::Implies(ref e1, ref e2) => {
-                if e1.borrow().has_obvious_priority_over(self) {
-                    write!(f, "{}⇒", e1.borrow())
+                if e1.has_obvious_priority_over(self) {
+                    write!(f, "{}⇒", e1)
                 } else {
-                    write!(f, "({})⇒", e1.borrow())
+                    write!(f, "({})⇒", e1)
                 }?;
-                if e2.borrow().has_obvious_priority_over(self)
-                    || e2.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}", e2.borrow())
+                if e2.has_obvious_priority_over(self) || e2.has_same_operation(self) {
+                    write!(f, "{}", e2)
                 } else {
-                    write!(f, "({})", e2.borrow())
+                    write!(f, "({})", e2)
                 }
             }
             Expr::Equivalent(ref e1, ref e2) => {
-                if e1.borrow().has_obvious_priority_over(self) {
-                    write!(f, "{}⇔", e1.borrow())
+                if e1.has_obvious_priority_over(self) {
+                    write!(f, "{}⇔", e1)
                 } else {
-                    write!(f, "({})⇔", e1.borrow())
+                    write!(f, "({})⇔", e1)
                 }?;
-                if e2.borrow().has_obvious_priority_over(self)
-                    || e2.borrow().has_same_operation(self)
-                {
-                    write!(f, "{}", e2.borrow())
+                if e2.has_obvious_priority_over(self) || e2.has_same_operation(self) {
+                    write!(f, "{}", e2)
                 } else {
-                    write!(f, "({})", e2.borrow())
+                    write!(f, "({})", e2)
                 }
             }
         }
+    }
+}
+
+impl<T> Not for Expr<T> {
+    type Output = Expr<T>;
+    fn not(self) -> Self::Output {
+        Expr::Not(Box::new(self))
     }
 }
 
@@ -162,83 +148,59 @@ mod tests {
 
     #[test]
     fn expression_display() {
-        let p = Rc::new(RefCell::new(Expr::Proposition('p')));
-        let q = Rc::new(RefCell::new(Expr::Proposition('q')));
+        let p = Expr::proposition('p');
+        let q = Expr::proposition('q');
 
         assert_eq!(format!("{}", Expr::Truth::<i32>(true)), "T");
         assert_eq!(format!("{}", Expr::Truth::<i32>(false)), "F");
-        assert_eq!(format!("{}", Expr::Not(p.clone())), "¬p");
-        assert_eq!(format!("{}", Expr::And(p.clone(), q.clone())), "p∧q");
-        assert_eq!(format!("{}", Expr::Or(p.clone(), q.clone())), "p∨q");
-        assert_eq!(format!("{}", Expr::Xor(p.clone(), q.clone())), "p⊕q");
-        assert_eq!(format!("{}", Expr::Implies(p.clone(), q.clone())), "p⇒q");
-        assert_eq!(
-            format!("{}", Expr::Equivalent(p.clone(), q.clone())),
-            "p⇔q"
-        );
+        assert_eq!(format!("{}", p.clone().not()), "¬p");
+        assert_eq!(format!("{}", p.clone().and(q.clone())), "p∧q");
+        assert_eq!(format!("{}", p.clone().or(q.clone())), "p∨q");
+        assert_eq!(format!("{}", p.clone().xor(q.clone())), "p⊕q");
+        assert_eq!(format!("{}", p.clone().implies(q.clone())), "p⇒q");
+        assert_eq!(format!("{}", p.clone().equivalent(q.clone())), "p⇔q");
     }
 
     #[test]
     fn expression_priority_display() {
-        let p = Rc::new(RefCell::new(Expr::Proposition('p')));
-        let q = Rc::new(RefCell::new(Expr::Proposition('q')));
-        let r = Rc::new(RefCell::new(Expr::Proposition('r')));
+        let p = Expr::proposition('p');
+        let q = Expr::proposition('q');
+        let r = Expr::proposition('r');
 
-        let not_p = Rc::new(RefCell::new(Expr::Not(p.clone())));
-        assert_eq!(format!("{}", Expr::Not(not_p)), "¬¬p");
-        let p_and_q = Rc::new(RefCell::new(Expr::And(p.clone(), q.clone())));
-        assert_eq!(format!("{}", Expr::Not(p_and_q.clone())), "¬(p∧q)");
+        assert_eq!(format!("{}", p.clone().not().not()), "¬¬p");
 
-        assert_eq!(
-            format!("{}", Expr::And(p_and_q.clone(), r.clone())),
-            "p∧q∧r"
-        );
-        assert_eq!(
-            format!("{}", Expr::And(r.clone(), p_and_q.clone())),
-            "r∧p∧q"
-        );
+        let p_and_q = p.clone().and(q.clone());
+        assert_eq!(format!("{}", p_and_q.clone().not()), "¬(p∧q)");
 
-        let p_or_q = Rc::new(RefCell::new(Expr::Or(p.clone(), q.clone())));
-        assert_eq!(
-            format!("{}", Expr::Or(p_or_q.clone(), r.clone())),
-            "p∨q∨r"
-        );
-        assert_eq!(
-            format!("{}", Expr::Or(r.clone(), p_or_q.clone())),
-            "r∨p∨q"
-        );
+        assert_eq!(format!("{}", p_and_q.clone().and(r.clone())), "p∧q∧r");
+        assert_eq!(format!("{}", r.clone().and(p_and_q.clone())), "r∧p∧q");
 
-        assert_eq!(
-            format!("{}", Expr::Or(p_and_q.clone(), r.clone())),
-            "(p∧q)∨r"
-        );
-        assert_eq!(
-            format!("{}", Expr::Or(r.clone(), p_and_q.clone())),
-            "r∨(p∧q)"
-        );
+        let p_or_q = p.clone().or(q.clone());
+        assert_eq!(format!("{}", p_or_q.clone().or(r.clone())), "p∨q∨r");
+        assert_eq!(format!("{}", r.clone().or(p_or_q.clone())), "r∨p∨q");
 
-        let p_implies_q = Rc::new(RefCell::new(Expr::Implies(p.clone(), q.clone())));
-        assert_eq!(format!("{}", Expr::Not(p_implies_q.clone())), "¬(p⇒q)");
+        assert_eq!(format!("{}", p_and_q.clone().or(r.clone())), "(p∧q)∨r");
+        assert_eq!(format!("{}", r.clone().or(p_and_q.clone())), "r∨(p∧q)");
+
+        let p_implies_q = p.clone().implies(q.clone());
+        assert_eq!(format!("{}", p_implies_q.clone().not()), "¬(p⇒q)");
         assert_eq!(
-            format!("{}", Expr::Implies(p_implies_q.clone(), r.clone())),
+            format!("{}", p_implies_q.clone().implies(r.clone())),
             "(p⇒q)⇒r"
         );
         assert_eq!(
-            format!("{}", Expr::Implies(r.clone(), p_implies_q.clone())),
+            format!("{}", r.clone().implies(p_implies_q.clone())),
             "r⇒p⇒q"
         );
 
-        let p_equivalent_q = Rc::new(RefCell::new(Expr::Equivalent(p.clone(), q.clone())));
+        let p_equivalent_q = p.clone().equivalent(q.clone());
+        assert_eq!(format!("{}", p_equivalent_q.clone().not()), "¬(p⇔q)");
         assert_eq!(
-            format!("{}", Expr::Not(p_equivalent_q.clone())),
-            "¬(p⇔q)"
-        );
-        assert_eq!(
-            format!("{}", Expr::Equivalent(p_equivalent_q.clone(), r.clone())),
+            format!("{}", p_equivalent_q.clone().equivalent(r.clone())),
             "(p⇔q)⇔r"
         );
         assert_eq!(
-            format!("{}", Expr::Equivalent(r.clone(), p_equivalent_q.clone())),
+            format!("{}", r.clone().equivalent(p_equivalent_q.clone())),
             "r⇔p⇔q"
         );
     }
