@@ -72,6 +72,12 @@ impl<T> Clone for Expr<T> {
     }
 }
 
+impl<'a, T> Into<Expr<T>> for &'a Expr<T> {
+    fn into(self) -> Expr<T> {
+        self.clone()
+    }
+}
+
 impl<T> fmt::Display for Expr<T>
 where
     T: fmt::Display,
@@ -158,9 +164,26 @@ impl<T> Not for Expr<T> {
     }
 }
 
+impl<'a, T> Not for &'a Expr<T> {
+    type Output = Expr<T>;
+    fn not(self) -> Self::Output {
+        self.clone().not()
+    }
+}
+
 impl<RHS, T> BitAnd<RHS> for Expr<T>
 where
     RHS: Into<Expr<T>>,
+{
+    type Output = Expr<T>;
+    fn bitand(self, e: RHS) -> Self::Output {
+        self.and(e.into())
+    }
+}
+
+impl<'a, RHS, T> BitAnd<RHS> for &'a Expr<T>
+    where
+        RHS: Into<Expr<T>>,
 {
     type Output = Expr<T>;
     fn bitand(self, e: RHS) -> Self::Output {
@@ -178,9 +201,29 @@ where
     }
 }
 
+impl<'a, RHS, T> BitOr<RHS> for &'a Expr<T>
+    where
+        RHS: Into<Expr<T>>,
+{
+    type Output = Expr<T>;
+    fn bitor(self, e: RHS) -> Self::Output {
+        self.or(e.into())
+    }
+}
+
 impl<RHS, T> BitXor<RHS> for Expr<T>
 where
     RHS: Into<Expr<T>>,
+{
+    type Output = Expr<T>;
+    fn bitxor(self, e: RHS) -> Self::Output {
+        self.xor(e.into())
+    }
+}
+
+impl<'a, RHS, T> BitXor<RHS> for &'a Expr<T>
+    where
+        RHS: Into<Expr<T>>,
 {
     type Output = Expr<T>;
     fn bitxor(self, e: RHS) -> Self::Output {
@@ -194,15 +237,15 @@ mod tests {
 
     #[test]
     fn operation() {
-        let (p, q) = (Expr::proposition('p'), Expr::proposition('q'));
-        assert_eq!(p.clone().not(), !p.clone());
-        assert_eq!(p.clone().and(q.clone()), p.clone() & q.clone());
-        assert_eq!(p.clone().or(q.clone()), p.clone() | q.clone());
-        assert_eq!(p.clone().xor(q.clone()), p.clone() ^ q.clone());
+        let (p, q) = (&Expr::proposition('p'), &Expr::proposition('q'));
+        assert_eq!(p.not(), !p);
+        assert_eq!(p.and(q), p & q);
+        assert_eq!(p.or(q), p | q);
+        assert_eq!(p.xor(q), p ^ q);
     }
 
     #[test]
-    fn clone() {
+    fn clone(){
         #[derive(Debug, Eq, PartialEq)]
         struct A(i32);
         let e1 = Expr::proposition(A(1));
@@ -218,48 +261,48 @@ mod tests {
 
     #[test]
     fn expression_display() {
-        let p = Expr::proposition('p');
-        let q = Expr::proposition('q');
+        let p = &Expr::proposition('p');
+        let q = &Expr::proposition('q');
 
         format_eq!(Expr::Truth::<i32>(true), "T");
         format_eq!(Expr::Truth::<i32>(false), "F");
-        format_eq!(p.clone().not(), "¬p");
-        format_eq!(p.clone().and(q.clone()), "p∧q");
-        format_eq!(p.clone().or(q.clone()), "p∨q");
-        format_eq!(p.clone().xor(q.clone()), "p⊕q");
-        format_eq!(p.clone().implies(q.clone()), "p⇒q");
-        format_eq!(p.clone().equivalent(q.clone()), "p⇔q");
+        format_eq!(p.not(), "¬p");
+        format_eq!(p.and(q), "p∧q");
+        format_eq!(p.or(q), "p∨q");
+        format_eq!(p.xor(q), "p⊕q");
+        format_eq!(p.implies(q), "p⇒q");
+        format_eq!(p.equivalent(q), "p⇔q");
     }
 
     #[test]
     fn expression_priority_display() {
-        let p = Expr::proposition('p');
-        let q = Expr::proposition('q');
-        let r = Expr::proposition('r');
+        let p = &Expr::proposition('p');
+        let q = &Expr::proposition('q');
+        let r = &Expr::proposition('r');
 
-        format_eq!(p.clone().not().not(), "¬¬p");
+        format_eq!(p.not().not(), "¬¬p");
 
-        let p_and_q = p.clone().and(q.clone());
-        format_eq!(p_and_q.clone().not(), "¬(p∧q)");
+        let p_and_q = &(p.and(q));
+        format_eq!(p_and_q.not(), "¬(p∧q)");
 
-        format_eq!(p_and_q.clone().and(r.clone()), "p∧q∧r");
-        format_eq!(r.clone().and(p_and_q.clone()), "r∧p∧q");
+        format_eq!(p_and_q.and(r), "p∧q∧r");
+        format_eq!(r.and(p_and_q), "r∧p∧q");
 
-        let p_or_q = p.clone().or(q.clone());
-        format_eq!(p_or_q.clone().or(r.clone()), "p∨q∨r");
-        format_eq!(r.clone().or(p_or_q.clone()), "r∨p∨q");
+        let p_or_q = &(p.or(q));
+        format_eq!(p_or_q.or(r), "p∨q∨r");
+        format_eq!(r.or(p_or_q), "r∨p∨q");
 
-        format_eq!(p_and_q.clone().or(r.clone()), "(p∧q)∨r");
-        format_eq!(r.clone().or(p_and_q.clone()), "r∨(p∧q)");
+        format_eq!(p_and_q.or(r), "(p∧q)∨r");
+        format_eq!(r.or(p_and_q), "r∨(p∧q)");
 
-        let p_implies_q = p.clone().implies(q.clone());
-        format_eq!(p_implies_q.clone().not(), "¬(p⇒q)");
-        format_eq!(p_implies_q.clone().implies(r.clone()), "(p⇒q)⇒r");
-        format_eq!(r.clone().implies(p_implies_q.clone()), "r⇒p⇒q");
+        let p_implies_q = &(p.implies(q));
+        format_eq!(p_implies_q.not(), "¬(p⇒q)");
+        format_eq!(p_implies_q.implies(r), "(p⇒q)⇒r");
+        format_eq!(r.implies(p_implies_q), "r⇒p⇒q");
 
-        let p_equivalent_q = p.clone().equivalent(q.clone());
-        format_eq!(p_equivalent_q.clone().not(), "¬(p⇔q)");
-        format_eq!(p_equivalent_q.clone().equivalent(r.clone()), "(p⇔q)⇔r");
-        format_eq!(r.clone().equivalent(p_equivalent_q.clone()), "r⇔p⇔q");
+        let p_equivalent_q = &(p.equivalent(q));
+        format_eq!(p_equivalent_q.not(), "¬(p⇔q)");
+        format_eq!(p_equivalent_q.equivalent(r), "(p⇔q)⇔r");
+        format_eq!(r.equivalent(p_equivalent_q), "r⇔p⇔q");
     }
 }
