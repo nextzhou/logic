@@ -1,4 +1,5 @@
 pub use ops::*;
+use rule::Rule;
 
 use std::rc::Rc;
 use std::mem;
@@ -53,6 +54,25 @@ impl<T> Expr<T> {
 
     fn has_obvious_priority_over(&self, e: &Expr<T>) -> bool {
         self.vague_priority() < e.vague_priority()
+    }
+
+    pub fn apply_rule<R>(&self, rule: &R) -> bool
+    where
+        R: Rule<T>,
+    {
+        match *self {
+            Expr::Truth(t) => t,
+            Expr::Proposition(ref p) => rule.map(p),
+            Expr::Not(ref e) => !(e.apply_rule(rule)),
+            Expr::And(ref e1, ref e2) => e1.apply_rule(rule) && e2.apply_rule(rule),
+            Expr::Or(ref e1, ref e2) => e1.apply_rule(rule) || e2.apply_rule(rule),
+            Expr::Xor(ref e1, ref e2) => e1.apply_rule(rule) ^ e2.apply_rule(rule),
+            Expr::Implies(ref e1, ref e2) => {
+                let (t1, t2) = (e1.apply_rule(rule), e2.apply_rule(rule));
+                !(t1 && !t2)
+            }
+            Expr::Equivalent(ref e1, ref e2) => e1.apply_rule(rule) == e2.apply_rule(rule),
+        }
     }
 }
 
@@ -182,8 +202,8 @@ where
 }
 
 impl<'a, RHS, T> BitAnd<RHS> for &'a Expr<T>
-    where
-        RHS: Into<Expr<T>>,
+where
+    RHS: Into<Expr<T>>,
 {
     type Output = Expr<T>;
     fn bitand(self, e: RHS) -> Self::Output {
@@ -202,8 +222,8 @@ where
 }
 
 impl<'a, RHS, T> BitOr<RHS> for &'a Expr<T>
-    where
-        RHS: Into<Expr<T>>,
+where
+    RHS: Into<Expr<T>>,
 {
     type Output = Expr<T>;
     fn bitor(self, e: RHS) -> Self::Output {
@@ -222,8 +242,8 @@ where
 }
 
 impl<'a, RHS, T> BitXor<RHS> for &'a Expr<T>
-    where
-        RHS: Into<Expr<T>>,
+where
+    RHS: Into<Expr<T>>,
 {
     type Output = Expr<T>;
     fn bitxor(self, e: RHS) -> Self::Output {
@@ -236,6 +256,75 @@ mod tests {
     use super::*;
 
     #[test]
+    fn apply_rule() {
+        let (p, q) = (&Expr::proposition('p'), &Expr::proposition('q'));
+        let rule1 = |p: &char| if *p == 'p' { true } else { false }; // p is true, q is false
+        let rule2 = |p: &char| if *p == 'q' { true } else { false }; // p is false, q is false
+        let rule3 = |_: &char| true; // always returns true
+        let rule4 = |_: &char| false; // always returns false
+
+        macro_rules! rule_test {
+            ($expr: expr, $r1: expr, $r2: expr, $r3: expr, $r4: expr) => {
+                assert_eq!(($expr).apply_rule(&rule1), $r1);
+                assert_eq!(($expr).apply_rule(&rule2), $r2);
+                assert_eq!(($expr).apply_rule(&rule3), $r3);
+                assert_eq!(($expr).apply_rule(&rule4), $r4);
+            };
+            ($e: expr) => {
+                // assert e1 always is true
+                assert!(($e).apply_rule(&rule1));
+                assert!(($e).apply_rule(&rule2));
+                assert!(($e).apply_rule(&rule3));
+                assert!(($e).apply_rule(&rule4));
+            };
+            ($e1: expr, $e2: expr) => {
+                // assert e1 always equals e2
+                assert_eq!(($e1).apply_rule(&rule1), ($e2).apply_rule(&rule1));
+                assert_eq!(($e1).apply_rule(&rule2), ($e2).apply_rule(&rule2));
+                assert_eq!(($e1).apply_rule(&rule3), ($e2).apply_rule(&rule3));
+                assert_eq!(($e1).apply_rule(&rule4), ($e2).apply_rule(&rule4));
+            };
+        }
+
+        rule_test!(p, p);
+        rule_test!(q, q);
+
+        rule_test!(!!p, p);
+        rule_test!(!!!p, !p);
+
+        rule_test!(p, p & p);
+        rule_test!(p, p | p);
+
+        rule_test!(!(p & !p));
+        rule_test!(p | !p);
+        rule_test!(p ^ !p);
+
+        rule_test!(p & q, q & p);
+        rule_test!(p | q, q | p);
+        rule_test!(p ^ q, q ^ p);
+        rule_test!(p.equivalent(q), q.equivalent(p));
+
+        rule_test!(Expr::truth(false).implies(p));
+        rule_test!(Expr::truth(true).implies(p), p);
+
+        rule_test!(p, true, false, true, false);
+        rule_test!(!p, false, true, false, true);
+
+        rule_test!(q, false, true, true, false);
+        rule_test!(!q, true, false, false, true);
+
+        rule_test!(p & q, false, false, true, false);
+        rule_test!(p | q, true, true, true, false);
+        rule_test!(p ^ q, true, true, false, false);
+
+        rule_test!(p.implies(q), false, true, true, true);
+        rule_test!(q.implies(p), true, false, true, true);
+
+        rule_test!(p.equivalent(q), false, false, true, true);
+        rule_test!(q.equivalent(p), false, false, true, true);
+    }
+
+    #[test]
     fn operation() {
         let (p, q) = (&Expr::proposition('p'), &Expr::proposition('q'));
         assert_eq!(p.not(), !p);
@@ -245,7 +334,7 @@ mod tests {
     }
 
     #[test]
-    fn clone(){
+    fn clone() {
         #[derive(Debug, Eq, PartialEq)]
         struct A(i32);
         let e1 = Expr::proposition(A(1));
