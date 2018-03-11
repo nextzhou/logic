@@ -1,6 +1,8 @@
 [package]
 name = "logic"
 version = "0.1.0"
+license = "MIT"
+description = "propositional logic"
 authors = ["nextzhou <nextzhou@gmail.com>"]
 
 [dependencies]
