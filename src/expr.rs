@@ -104,13 +104,13 @@ impl<T> Expr<T> {
         }
     }
 
-    pub fn apply_partial_rule<R>(&self, rule: &R) -> Self
+    pub fn apply_partial_rule<R>(self, rule: &R) -> Self
     where
         R: PartialRule<T>,
     {
-        let mut clone = self.clone();
-        clone.apply_partial_rule_inplace(rule);
-        clone
+        let mut e = self;
+        e.apply_partial_rule_inplace(rule);
+        e
     }
 }
 
@@ -304,7 +304,7 @@ mod tests {
         let (p, q) = (&Expr::proposition('p'), &Expr::proposition('q'));
         let rule = |p: &char| if *p == 'p' { Some(true) } else { None };
         let mut expr = q.implies(!p & (p | q));
-        let expr_new = expr.apply_partial_rule(&rule);
+        let expr_new = expr.clone().apply_partial_rule(&rule);
         expr.apply_partial_rule_inplace(&rule);
         format_eq!(expr, "q⇒¬T∧(T∨q)");
         format_eq!(expr_new, "q⇒¬T∧(T∨q)");
