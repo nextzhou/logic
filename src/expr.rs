@@ -1,5 +1,5 @@
 pub use ops::*;
-use rule::Rule;
+use rule::{PartialRule, Rule};
 
 use std::rc::Rc;
 use std::mem;
@@ -73,6 +73,44 @@ impl<T> Expr<T> {
             }
             Expr::Equivalent(ref e1, ref e2) => e1.apply_rule(rule) == e2.apply_rule(rule),
         }
+    }
+
+    pub fn apply_partial_rule_inplace<R>(&mut self, rule: &R)
+    where
+        R: PartialRule<T>,
+    {
+        let mut result = None;
+        match *self {
+            Expr::Truth(_) => (),
+            Expr::Proposition(ref p) => {
+                if let Some(t) = rule.try_map(p) {
+                    ::std::mem::swap(&mut result, &mut Some(Expr::Truth(t)))
+                }
+            }
+            Expr::Not(ref mut e) => {
+                e.apply_partial_rule_inplace(rule);
+            }
+            Expr::And(ref mut e1, ref mut e2)
+            | Expr::Or(ref mut e1, ref mut e2)
+            | Expr::Xor(ref mut e1, ref mut e2)
+            | Expr::Implies(ref mut e1, ref mut e2)
+            | Expr::Equivalent(ref mut e1, ref mut e2) => {
+                e1.apply_partial_rule_inplace(rule);
+                e2.apply_partial_rule_inplace(rule);
+            }
+        };
+        if let Some(ref mut e) = result {
+            ::std::mem::swap(self, e)
+        }
+    }
+
+    pub fn apply_partial_rule<R>(&self, rule: &R) -> Self
+    where
+        R: PartialRule<T>,
+    {
+        let mut clone = self.clone();
+        clone.apply_partial_rule_inplace(rule);
+        clone
     }
 }
 
@@ -255,6 +293,23 @@ where
 mod tests {
     use super::*;
 
+    macro_rules! format_eq {
+        ($e: expr, $s: expr) => {
+            assert_eq!(format!("{}", $e), $s);
+        };
+    }
+
+    #[test]
+    fn apply_partial_rule() {
+        let (p, q) = (&Expr::proposition('p'), &Expr::proposition('q'));
+        let rule = |p: &char| if *p == 'p' { Some(true) } else { None };
+        let mut expr = q.implies(!p & (p | q));
+        let expr_new = expr.apply_partial_rule(&rule);
+        expr.apply_partial_rule_inplace(&rule);
+        format_eq!(expr, "q⇒¬T∧(T∨q)");
+        format_eq!(expr_new, "q⇒¬T∧(T∨q)");
+    }
+
     #[test]
     fn apply_rule() {
         let (p, q) = (&Expr::proposition('p'), &Expr::proposition('q'));
@@ -340,12 +395,6 @@ mod tests {
         let e1 = Expr::proposition(A(1));
         let e2 = e1.clone();
         assert_eq!(e1, e2);
-    }
-
-    macro_rules! format_eq {
-        ($e: expr, $s: expr) => {
-            assert_eq!(format!("{}", $e), $s);
-        };
     }
 
     #[test]
