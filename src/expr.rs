@@ -5,6 +5,7 @@ use std::rc::Rc;
 use std::mem;
 use std::fmt;
 use std::ops::{BitAnd, BitOr, BitXor, Not};
+use std::default::Default;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum Expr<T> {
@@ -82,7 +83,7 @@ impl<T> Expr<T> {
         let mut result = None;
         macro_rules! replace {
             ($e: expr) => {
-                let ee = mem::replace($e.as_mut(), Expr::Truth(false));
+                let ee = mem::replace($e.as_mut(), Expr::default());
                 mem::swap(&mut result, &mut Some(ee));
             };
         }
@@ -189,6 +190,12 @@ impl<T> Expr<T> {
         let mut e = self;
         e.apply_partial_rule_inplace(rule);
         e
+    }
+}
+
+impl<T> Default for Expr<T> {
+    fn default() -> Self {
+        Expr::Truth(false)
     }
 }
 
