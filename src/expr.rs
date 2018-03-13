@@ -80,27 +80,105 @@ impl<T> Expr<T> {
         R: PartialRule<T>,
     {
         let mut result = None;
+        macro_rules! replace {
+            ($e: expr) => {
+                let ee = mem::replace($e.as_mut(), Expr::Truth(false));
+                mem::swap(&mut result, &mut Some(ee));
+            };
+        }
         match *self {
             Expr::Truth(_) => (),
             Expr::Proposition(ref p) => {
                 if let Some(t) = rule.try_map(p) {
-                    ::std::mem::swap(&mut result, &mut Some(Expr::Truth(t)))
+                    mem::swap(&mut result, &mut Some(Expr::Truth(t)))
                 }
             }
             Expr::Not(ref mut e) => {
                 e.apply_partial_rule_inplace(rule);
+                if let Expr::Truth(t) = **e {
+                    mem::swap(&mut result, &mut Some(Expr::Truth(!t)))
+                }
             }
-            Expr::And(ref mut e1, ref mut e2)
-            | Expr::Or(ref mut e1, ref mut e2)
-            | Expr::Xor(ref mut e1, ref mut e2)
-            | Expr::Implies(ref mut e1, ref mut e2)
-            | Expr::Equivalent(ref mut e1, ref mut e2) => {
+            Expr::And(ref mut e1, ref mut e2) => {
                 e1.apply_partial_rule_inplace(rule);
                 e2.apply_partial_rule_inplace(rule);
+                if let Expr::Truth(t) = **e1 {
+                    if t {
+                        replace!(e2);
+                    } else {
+                        mem::swap(&mut result, &mut Some(Expr::Truth(false)));
+                    }
+                } else if let Expr::Truth(t) = **e2 {
+                    if t {
+                        replace!(e1);
+                    } else {
+                        mem::swap(&mut result, &mut Some(Expr::Truth(false)));
+                    }
+                }
+            }
+            Expr::Or(ref mut e1, ref mut e2) => {
+                e1.apply_partial_rule_inplace(rule);
+                e2.apply_partial_rule_inplace(rule);
+                if let Expr::Truth(t) = **e1 {
+                    if t {
+                        mem::swap(&mut result, &mut Some(Expr::Truth(true)));
+                    } else {
+                        replace!(e2);
+                    }
+                } else if let Expr::Truth(t) = **e2 {
+                    if t {
+                        mem::swap(&mut result, &mut Some(Expr::Truth(true)));
+                    } else {
+                        replace!(e1);
+                    }
+                }
+            }
+            Expr::Xor(ref mut e1, ref mut e2) => {
+                e1.apply_partial_rule_inplace(rule);
+                e2.apply_partial_rule_inplace(rule);
+                if let Expr::Truth(t) = **e1 {
+                    if !t {
+                        replace!(e2);
+                    }
+                } else if let Expr::Truth(t) = **e2 {
+                    if !t {
+                        replace!(e1);
+                    }
+                }
+            }
+            Expr::Implies(ref mut e1, ref mut e2) => {
+                e1.apply_partial_rule_inplace(rule);
+                e2.apply_partial_rule_inplace(rule);
+                if let Expr::Truth(t) = **e1 {
+                    if t {
+                        replace!(e2);
+                    } else {
+                        mem::swap(&mut result, &mut Some(Expr::Truth(true)));
+                    }
+                } else if let Expr::Truth(t) = **e2 {
+                    if t {
+                        mem::swap(&mut result, &mut Some(Expr::Truth(true)));
+                    } else {
+                        replace!(e1);
+                    }
+                }
+            }
+            Expr::Equivalent(ref mut e1, ref mut e2) => {
+                e1.apply_partial_rule_inplace(rule);
+                e2.apply_partial_rule_inplace(rule);
+                if let Expr::Truth(t) = **e1 {
+                    if t {
+                        replace!(e2);
+                    }
+                } else if let Expr::Truth(t) = **e2 {
+                    if t {
+                        replace!(e1);
+                    }
+                }
             }
         };
         if let Some(ref mut e) = result {
-            ::std::mem::swap(self, e)
+            mem::swap(self, e)
         }
     }
 
@@ -302,12 +380,15 @@ mod tests {
     #[test]
     fn apply_partial_rule() {
         let (p, q) = (&Expr::proposition('p'), &Expr::proposition('q'));
-        let rule = |p: &char| if *p == 'p' { Some(true) } else { None };
-        let mut expr = q.implies(!p & (p | q));
-        let expr_new = expr.clone().apply_partial_rule(&rule);
-        expr.apply_partial_rule_inplace(&rule);
-        format_eq!(expr, "q⇒¬T∧(T∨q)");
-        format_eq!(expr_new, "q⇒¬T∧(T∨q)");
+        let rule1 = |p: &char| if *p == 'p' { Some(true) } else { None };
+        let rule2 = |p: &char| if *p == 'p' { Some(false) } else { None };
+        let rule3 = |p: &char| if *p == 'q' { Some(true) } else { None };
+        let rule4 = |p: &char| if *p == 'q' { Some(false) } else { None };
+        let expr = q.implies(!p & (p | q));
+        format_eq!(expr.clone().apply_partial_rule(&rule1), "q");
+        format_eq!(expr.clone().apply_partial_rule(&rule2), "q⇒q");
+        format_eq!(expr.clone().apply_partial_rule(&rule3), "¬p");
+        format_eq!(expr.clone().apply_partial_rule(&rule4), "T");
     }
 
     #[test]
