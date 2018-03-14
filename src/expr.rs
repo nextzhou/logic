@@ -191,6 +191,30 @@ impl<T> Expr<T> {
         e.apply_partial_rule_inplace(rule);
         e
     }
+
+    /// find out all propositions in the expression
+    pub fn find_propositions(&self, receiver: &mut Vec<Rc<T>>)
+    where
+        T: PartialEq,
+    {
+        match *self {
+            Expr::Truth(_) => (),
+            Expr::Proposition(ref p) => {
+                if receiver.iter().all(|x| p != x) {
+                    receiver.push(p.clone());
+                }
+            }
+            Expr::Not(ref e) => e.find_propositions(receiver),
+            Expr::And(ref e1, ref e2)
+            | Expr::Or(ref e1, ref e2)
+            | Expr::Xor(ref e1, ref e2)
+            | Expr::Implies(ref e1, ref e2)
+            | Expr::Equivalent(ref e1, ref e2) => {
+                e1.find_propositions(receiver);
+                e2.find_propositions(receiver);
+            }
+        }
+    }
 }
 
 impl<T> Default for Expr<T> {
@@ -382,6 +406,19 @@ mod tests {
         ($e: expr, $s: expr) => {
             assert_eq!(format!("{}", $e), $s);
         };
+    }
+
+    #[test]
+    fn find_propositions() {
+        let (p, q, r) = (
+            &Expr::proposition('p'),
+            &Expr::proposition('q'),
+            &Expr::proposition('r'),
+        );
+        let expr = (p & q).implies(p ^ r);
+        let mut propositions = Vec::new();
+        expr.find_propositions(&mut propositions);
+        assert_eq!(propositions, vec![Rc::new('p'), Rc::new('q'), Rc::new('r')]);
     }
 
     #[test]
