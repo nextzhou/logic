@@ -1,5 +1,6 @@
 pub use ops::*;
 use rule::{PartialRule, Rule};
+use form::TruthTable;
 
 use std::rc::Rc;
 use std::mem;
@@ -213,6 +214,18 @@ impl<T> Expr<T> {
                 e1.find_propositions(receiver);
                 e2.find_propositions(receiver);
             }
+        }
+    }
+
+    pub fn truth_table(&self) -> TruthTable<T>
+    where
+        T: PartialEq,
+    {
+        let mut propositions = Vec::new();
+        self.find_propositions(&mut propositions);
+        TruthTable {
+            expr: self,
+            propositions,
         }
     }
 }
