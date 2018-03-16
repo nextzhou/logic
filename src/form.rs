@@ -108,4 +108,13 @@ mod tests {
                false, true, true, true;
                true, true, true, true);
     }
+
+    #[test]
+    fn empty_truth_table() {
+        let p = Expr::Truth::<i32>(true);
+        let truth_table = p.truth_table();
+        let mut rows = truth_table.rows();
+        assert_eq!(rows.next(), Some(TruthTableRow{state:vec![], result: true}));
+        assert_eq!(rows.next(), None);
+    }
 }
