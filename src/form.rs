@@ -1,6 +1,8 @@
 use std::rc::Rc;
 use std::iter::Iterator;
+use std::ops::Not;
 
+use ops::{And, Or};
 use expr::Expr;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -18,6 +20,49 @@ where
             truth_table: self,
             state: 0,
             rows_number: 1 << (self.propositions.len() as u64),
+        }
+    }
+
+    pub fn major_dnf(&self) -> Expr<T> {
+        let dnf = self.rows()
+            .filter_map(|TruthTableRow { state, result }| {
+                if result {
+                    let minterm = state
+                        .iter()
+                        .map(|&(ref p, truth)| {
+                            if truth {
+                                Expr::Proposition(p.clone())
+                            } else {
+                                Expr::Proposition(p.clone()).not()
+                            }
+                        })
+                        .fold(None, |e1: Option<Expr<T>>, e2| {
+                            if let Some(e) = e1 {
+                                Some(e.and(e2))
+                            } else {
+                                Some(e2)
+                            }
+                        });
+                    if let Some(e) = minterm {
+                        Some(e)
+                    } else {
+                        Some(Expr::Truth(true))
+                    }
+                } else {
+                    None
+                }
+            })
+            .fold(None, |e1: Option<Expr<T>>, e2| {
+                if let Some(e) = e1 {
+                    Some(e.or(e2))
+                } else {
+                    Some(e2)
+                }
+            });
+        if let Some(e) = dnf {
+            e
+        } else {
+            Expr::Truth(false)
         }
     }
 }
@@ -38,7 +83,10 @@ where
     rows_number: u64,
 }
 
-impl<'a, T> Clone for TruthTableRowIter<'a, T> where T: 'a + PartialEq {
+impl<'a, T> Clone for TruthTableRowIter<'a, T>
+where
+    T: 'a + PartialEq,
+{
     fn clone(&self) -> Self {
         TruthTableRowIter {
             truth_table: &self.truth_table,
@@ -73,7 +121,10 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        ((self.rows_number - self.state) as usize, Some(self.rows_number as usize))
+        (
+            (self.rows_number - self.state) as usize,
+            Some(self.rows_number as usize),
+        )
     }
 
     fn count(self) -> usize {
@@ -90,7 +141,6 @@ where
         self.state = n as u64;
         self.next()
     }
-
 }
 
 fn parse_state<T>(state: u64, propositions: &Vec<Rc<T>>) -> Vec<(Rc<T>, bool)> {
@@ -109,6 +159,13 @@ fn parse_state<T>(state: u64, propositions: &Vec<Rc<T>>) -> Vec<(Rc<T>, bool)> {
 mod tests {
     use super::*;
     use ops::Implies;
+
+    macro_rules! format_eq {
+        ($e: expr, $s: expr) => {
+            assert_eq!(format!("{}", $e), $s);
+        };
+    }
+
     #[test]
     fn truth_table() {
         let (p, q, r) = (
@@ -147,9 +204,36 @@ mod tests {
         let truth_table = p.truth_table();
         let mut rows = truth_table.rows();
         assert_eq!(rows.size_hint(), (1, Some(1)));
-        assert_eq!(rows.next(), Some(TruthTableRow{state:vec![], result: true}));
+        assert_eq!(
+            rows.next(),
+            Some(TruthTableRow {
+                state: vec![],
+                result: true,
+            })
+        );
         assert_eq!(rows.size_hint(), (0, Some(1)));
         assert_eq!(rows.next(), None);
         assert_eq!(rows.size_hint(), (0, Some(1)));
+    }
+
+    #[test]
+    fn dnf() {
+        let expr: Expr<i32> = Expr::truth(true) & Expr::truth(false);
+        format_eq!(expr.truth_table().major_dnf(), "F");
+
+        let expr: Expr<i32> = Expr::truth(true) | Expr::truth(false);
+        format_eq!(expr.truth_table().major_dnf(), "T");
+
+        let (p, q, r) = (
+            &Expr::proposition('p'),
+            &Expr::proposition('q'),
+            &Expr::proposition('r'),
+        );
+
+        let expr = (p | q).implies(r);
+        format_eq!(
+            expr.truth_table().major_dnf(),
+            "(¬p∧¬q∧¬r)∨(¬p∧¬q∧r)∨(p∧¬q∧r)∨(¬p∧q∧r)∨(p∧q∧r)"
+        );
     }
 }
