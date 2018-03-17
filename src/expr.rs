@@ -1,6 +1,6 @@
 pub use ops::*;
 use rule::{PartialRule, Rule};
-use form::TruthTable;
+use form::{TruthTable, TruthTableRow};
 
 use std::rc::Rc;
 use std::mem;
@@ -227,6 +227,24 @@ impl<T> Expr<T> {
             expr: self,
             propositions,
         }
+    }
+
+    pub fn is_tautology(&self) -> bool
+    where
+        T: PartialEq,
+    {
+        self.truth_table()
+            .rows()
+            .all(|TruthTableRow { result, .. }| result)
+    }
+
+    pub fn is_contradiction(&self) -> bool
+    where
+        T: PartialEq,
+    {
+        self.truth_table()
+            .rows()
+            .all(|TruthTableRow { result, .. }| !result)
     }
 }
 
@@ -580,5 +598,24 @@ mod tests {
         format_eq!(p_equivalent_q.not(), "¬(p⇔q)");
         format_eq!(p_equivalent_q.equivalent(r), "(p⇔q)⇔r");
         format_eq!(r.equivalent(p_equivalent_q), "r⇔p⇔q");
+    }
+
+    #[test]
+    fn tautology_and_contradiction() {
+        assert!(Expr::<i32>::truth(true).is_tautology());
+        assert!(!Expr::<i32>::truth(true).is_contradiction());
+        assert!(!Expr::<i32>::truth(false).is_tautology());
+        assert!(Expr::<i32>::truth(false).is_contradiction());
+
+        let p = &Expr::proposition('p');
+
+        assert_eq!((p & !p).is_tautology(), false);
+        assert_eq!((p & !p).is_contradiction(), true);
+
+        assert_eq!((p | !p).is_tautology(), true);
+        assert_eq!((p | !p).is_contradiction(), false);
+
+        assert_eq!(p.is_tautology(), false);
+        assert_eq!(p.is_contradiction(), false);
     }
 }
