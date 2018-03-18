@@ -230,6 +230,9 @@ mod tests {
             &Expr::proposition('r'),
         );
 
+        let expr = p & !p;
+        format_eq!(expr.truth_table().major_dnf(), "F");
+
         let expr = (p | q).implies(r);
         format_eq!(
             expr.truth_table().major_dnf(),
