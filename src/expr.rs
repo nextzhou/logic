@@ -223,6 +223,9 @@ impl<T> Expr<T> {
     {
         let mut propositions = Vec::new();
         self.find_propositions(&mut propositions);
+        if propositions.len() > 32 {
+            panic!("more than 32 propositions")
+        }
         TruthTable {
             expr: self,
             propositions,

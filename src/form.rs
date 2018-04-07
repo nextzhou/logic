@@ -79,8 +79,8 @@ where
     T: 'a + PartialEq,
 {
     truth_table: &'a TruthTable<'a, T>,
-    state: u64,
-    rows_number: u64,
+    state: u32,
+    rows_number: u32,
 }
 
 impl<'a, T> Clone for TruthTableRowIter<'a, T>
@@ -138,12 +138,12 @@ where
     }
 
     fn nth(&mut self, n: usize) -> Option<Self::Item> {
-        self.state = n as u64;
+        self.state = n as u32;
         self.next()
     }
 }
 
-fn parse_state<T>(state: u64, propositions: &Vec<Rc<T>>) -> Vec<(Rc<T>, bool)> {
+fn parse_state<T>(state: u32, propositions: &Vec<Rc<T>>) -> Vec<(Rc<T>, bool)> {
     let mut result = Vec::with_capacity(propositions.len());
     for i in 0..propositions.len() {
         if (state & (1 << i)) == 0 {
