@@ -8,6 +8,12 @@ use std::fmt;
 use std::ops::{BitAnd, BitOr, BitXor, Not};
 use std::default::Default;
 
+macro_rules! PropositionsLimit {
+    () => {
+        24
+    };
+}
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub enum Expr<T> {
     Truth(bool),
@@ -223,7 +229,7 @@ impl<T> Expr<T> {
     {
         let mut propositions = Vec::new();
         self.find_propositions(&mut propositions);
-        if propositions.len() > 24 {
+        if propositions.len() > PropositionsLimit!() {
             Err(Error::TooManyPropositions)
         } else {
             Ok(TruthTable {
@@ -423,14 +429,19 @@ pub enum Error {
 impl ::std::error::Error for Error {
     fn description(&self) -> &str {
         match self {
-            Error::TooManyPropositions => "more than 24 propositions",
+            Error::TooManyPropositions => {
+                concat!("more than ", PropositionsLimit!(), " propositions")
+            }
         }
     }
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "more than 24 propositions")
+        write!(
+            f,
+            concat!("more than ", PropositionsLimit!(), " propositions")
+        )
     }
 }
 
