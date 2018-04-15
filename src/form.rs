@@ -65,6 +65,20 @@ where
             Expr::Truth(false)
         }
     }
+
+    pub fn is_tautology(&self) -> bool
+    where
+        T: PartialEq,
+    {
+        self.rows().all(|TruthTableRow { result, .. }| result)
+    }
+
+    pub fn is_contradiction(&self) -> bool
+    where
+        T: PartialEq,
+    {
+        self.rows().all(|TruthTableRow { result, .. }| !result)
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -174,7 +188,7 @@ mod tests {
             &Expr::proposition('r'),
         );
         let expr = (p | q).implies(r);
-        let truth_table = expr.truth_table();
+        let truth_table = expr.truth_table().unwrap();
         let mut rows = truth_table.rows();
         assert_eq!(rows.size_hint(), (8, Some(8)));
         macro_rules! table {
@@ -201,7 +215,7 @@ mod tests {
     #[test]
     fn empty_truth_table() {
         let p = Expr::Truth::<i32>(true);
-        let truth_table = p.truth_table();
+        let truth_table = p.truth_table().unwrap();
         let mut rows = truth_table.rows();
         assert_eq!(rows.size_hint(), (1, Some(1)));
         assert_eq!(
@@ -219,10 +233,10 @@ mod tests {
     #[test]
     fn dnf() {
         let expr: Expr<i32> = Expr::truth(true) & Expr::truth(false);
-        format_eq!(expr.truth_table().major_dnf(), "F");
+        format_eq!(expr.truth_table().unwrap().major_dnf(), "F");
 
         let expr: Expr<i32> = Expr::truth(true) | Expr::truth(false);
-        format_eq!(expr.truth_table().major_dnf(), "T");
+        format_eq!(expr.truth_table().unwrap().major_dnf(), "T");
 
         let (p, q, r) = (
             &Expr::proposition('p'),
@@ -231,11 +245,11 @@ mod tests {
         );
 
         let expr = p & !p;
-        format_eq!(expr.truth_table().major_dnf(), "F");
+        format_eq!(expr.truth_table().unwrap().major_dnf(), "F");
 
         let expr = (p | q).implies(r);
         format_eq!(
-            expr.truth_table().major_dnf(),
+            expr.truth_table().unwrap().major_dnf(),
             "(¬p∧¬q∧¬r)∨(¬p∧¬q∧r)∨(p∧¬q∧r)∨(¬p∧q∧r)∨(p∧q∧r)"
         );
     }

@@ -1,6 +1,6 @@
 pub use ops::*;
 use rule::{PartialRule, Rule};
-use form::{TruthTable, TruthTableRow};
+use form::TruthTable;
 
 use std::rc::Rc;
 use std::mem;
@@ -217,37 +217,20 @@ impl<T> Expr<T> {
         }
     }
 
-    pub fn truth_table(&self) -> TruthTable<T>
+    pub fn truth_table(&self) -> Result<TruthTable<T>, Error>
     where
         T: PartialEq,
     {
         let mut propositions = Vec::new();
         self.find_propositions(&mut propositions);
-        if propositions.len() > 32 {
-            panic!("more than 32 propositions")
+        if propositions.len() > 24 {
+            Err(Error::TooManyPropositions)
+        } else {
+            Ok(TruthTable {
+                expr: self,
+                propositions,
+            })
         }
-        TruthTable {
-            expr: self,
-            propositions,
-        }
-    }
-
-    pub fn is_tautology(&self) -> bool
-    where
-        T: PartialEq,
-    {
-        self.truth_table()
-            .rows()
-            .all(|TruthTableRow { result, .. }| result)
-    }
-
-    pub fn is_contradiction(&self) -> bool
-    where
-        T: PartialEq,
-    {
-        self.truth_table()
-            .rows()
-            .all(|TruthTableRow { result, .. }| !result)
     }
 }
 
@@ -432,6 +415,25 @@ where
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
+pub enum Error {
+    TooManyPropositions,
+}
+
+impl ::std::error::Error for Error {
+    fn description(&self) -> &str {
+        match self {
+            Error::TooManyPropositions => "more than 24 propositions",
+        }
+    }
+}
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "more than 24 propositions")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -605,20 +607,36 @@ mod tests {
 
     #[test]
     fn tautology_and_contradiction() {
-        assert!(Expr::<i32>::truth(true).is_tautology());
-        assert!(!Expr::<i32>::truth(true).is_contradiction());
-        assert!(!Expr::<i32>::truth(false).is_tautology());
-        assert!(Expr::<i32>::truth(false).is_contradiction());
+        assert!(
+            Expr::<i32>::truth(true)
+                .truth_table()
+                .unwrap()
+                .is_tautology()
+        );
+        assert!(!Expr::<i32>::truth(true)
+            .truth_table()
+            .unwrap()
+            .is_contradiction());
+        assert!(!Expr::<i32>::truth(false)
+            .truth_table()
+            .unwrap()
+            .is_tautology());
+        assert!(
+            Expr::<i32>::truth(false)
+                .truth_table()
+                .unwrap()
+                .is_contradiction()
+        );
 
         let p = &Expr::proposition('p');
 
-        assert_eq!((p & !p).is_tautology(), false);
-        assert_eq!((p & !p).is_contradiction(), true);
+        assert_eq!((p & !p).truth_table().unwrap().is_tautology(), false);
+        assert_eq!((p & !p).truth_table().unwrap().is_contradiction(), true);
 
-        assert_eq!((p | !p).is_tautology(), true);
-        assert_eq!((p | !p).is_contradiction(), false);
+        assert_eq!((p | !p).truth_table().unwrap().is_tautology(), true);
+        assert_eq!((p | !p).truth_table().unwrap().is_contradiction(), false);
 
-        assert_eq!(p.is_tautology(), false);
-        assert_eq!(p.is_contradiction(), false);
+        assert_eq!(p.truth_table().unwrap().is_tautology(), false);
+        assert_eq!(p.truth_table().unwrap().is_contradiction(), false);
     }
 }
