@@ -428,7 +428,7 @@ pub enum Error {
 
 impl ::std::error::Error for Error {
     fn description(&self) -> &str {
-        match self {
+        match *self {
             Error::TooManyPropositions => {
                 concat!("more than ", PropositionsLimit!(), " propositions")
             }
